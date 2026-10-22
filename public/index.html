@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5f2ea" />
+    <title>Fridge to List — snap it, nap, shop</title>
+    <meta
+      name="description"
+      content="Turn photos of your fridge or pantry into a grocery list. Runs locally with the open-weight Gemma 3 model through Ollama. No cloud."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#photos">Skip to the photo box</a>
+
+    <header class="topbar">
+      <div class="brand">
+        <svg class="sloth-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <circle cx="32" cy="33" r="22" fill="#8a7a5f" />
+          <circle cx="32" cy="37" r="16" fill="#e6dcc6" />
+          <ellipse cx="32" cy="24" rx="15" ry="9" fill="#c9b691" />
+          <ellipse cx="23" cy="36" rx="7" ry="6" fill="#6d5f49" />
+          <ellipse cx="41" cy="36" rx="7" ry="6" fill="#6d5f49" />
+          <circle cx="23.5" cy="36.5" r="2.1" fill="#221f1a" />
+          <circle cx="40.5" cy="36.5" r="2.1" fill="#221f1a" />
+          <circle cx="24.2" cy="35.8" r="0.7" fill="#f5f2ea" />
+          <circle cx="41.2" cy="35.8" r="0.7" fill="#f5f2ea" />
+          <ellipse cx="32" cy="44" rx="3.4" ry="2.6" fill="#4a4032" />
+          <path d="M26 49c2.6 2.4 9.4 2.4 12 0" fill="none" stroke="#4a4032" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <div>
+          <span class="brand-name">Fridge to List</span>
+          <span class="brand-sub">snap it · nap · shop</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="ghost-button" id="demoButton" type="button">Sample preview</button>
+        <button class="ghost-button" id="settingsButton" type="button" aria-haspopup="dialog">
+          <span class="dot" id="modelDot" aria-hidden="true"></span>
+          <span id="modelLabel">Model</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <div>
+          <h1>Your fridge already knows what you need.</h1>
+          <p class="lede">
+            Take one to four photos of the shelves, the door, the pantry. A small open-weight model
+            reads them on your own machine and writes the list. You do the shopping, not the remembering.
+          </p>
+          <p class="hero-meta">
+            <span class="pill pill-local">100% local</span>
+            <span class="pill pill-local">no account</span>
+            <span class="pill pill-local">photos never leave this machine</span>
+          </p>
+        </div>
+      </section>
+
+      <div class="top-grid">
+        <section class="card" id="photos" aria-labelledby="photosTitle">
+          <div class="card-head">
+            <div>
+              <h2 id="photosTitle">1. Show us the fridge</h2>
+              <p class="card-sub">Shelf, door, crisper, pantry — up to four. Blurry is survivable.</p>
+            </div>
+            <span class="count" id="photoCount" aria-live="polite">0 / 4</span>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input
+              type="file"
+              id="photoInput"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              class="visually-hidden"
+            />
+            <svg viewBox="0 0 48 48" class="dropzone-icon" aria-hidden="true">
+              <rect x="7" y="11" width="34" height="26" rx="5" fill="none" stroke="currentColor" stroke-width="2.5" />
+              <circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="2.5" />
+              <path d="M18 11l2.5-3h7L30 11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
+            </svg>
+            <p class="dropzone-title">Drop photos here, or <button type="button" class="link-button" id="browseButton">pick some</button></p>
+            <p class="dropzone-hint">JPEG, PNG or WebP. Big photos get shrunk in your browser first.</p>
+          </div>
+
+          <p class="field-error" id="photoError" role="alert" hidden></p>
+          <ul class="thumb-list" id="thumbList" aria-label="Selected photos"></ul>
+
+          <div class="actions">
+            <button class="primary-button" id="analyzeButton" type="button" disabled>
+              <span class="button-label">Look at my fridge</span>
+            </button>
+            <button class="ghost-button" id="clearPhotosButton" type="button" hidden>Clear photos</button>
+          </div>
+
+          <div class="progress" id="progress" hidden>
+            <div class="progress-bar" role="progressbar" aria-label="Reading photos" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-line">
+              <span class="spinner" aria-hidden="true"></span>
+              <span id="progressText" aria-live="polite">Reading the shelves…</span>
+              <span class="mono" id="progressTimer">0.0s</span>
+            </p>
+            <p class="progress-hint" id="progressHint">
+              First look can take a minute or two while the model wakes up. Perfect time to do nothing.
+            </p>
+            <button class="ghost-button small" id="cancelButton" type="button">Give up</button>
+          </div>
+        </section>
+
+        <section class="card" id="staplesCard" aria-labelledby="staplesTitle">
+          <div class="card-head">
+            <div>
+              <h2 id="staplesTitle">2. What you usually keep</h2>
+              <p class="card-sub">
+                A photo shows what is there, never what is missing. We compare these against what the
+                model sees to guess what ran out.
+              </p>
+            </div>
+          </div>
+          <ul class="chip-list" id="stapleList" aria-label="Usual staples"></ul>
+          <form class="inline-form" id="stapleForm">
+            <label class="visually-hidden" for="stapleInput">Add a staple</label>
+            <input id="stapleInput" type="text" maxlength="40" placeholder="add a staple, e.g. coffee" autocomplete="off" />
+            <button type="submit" class="ghost-button">Add</button>
+          </form>
+          <p class="tiny-note">
+            Saved in this browser only. <button type="button" class="link-button" id="resetStaples">Back to the default list</button>
+          </p>
+        </section>
+      </div>
+
+      <div id="errorCard" class="card error-card" role="alert" hidden>
+        <div class="error-head">
+          <span class="error-badge">Not now</span>
+          <h2 id="errorTitle">That did not work</h2>
+        </div>
+        <p id="errorMessage"></p>
+        <p class="error-hint" id="errorHint"></p>
+        <div id="errorCommandsWrap" hidden>
+          <p class="commands-label">Run this in a terminal:</p>
+          <pre class="commands"><code id="errorCommands"></code></pre>
+          <button type="button" class="ghost-button small" id="copyCommands">Copy commands</button>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary-button" id="retryButton">Try again</button>
+          <button type="button" class="ghost-button" id="errorSettingsButton">Check model settings</button>
+        </div>
+      </div>
+
+      <section class="card result-card" id="resultCard" aria-labelledby="resultTitle" hidden>
+        <div class="card-head">
+          <div>
+            <h2 id="resultTitle">3. The list</h2>
+            <p class="card-sub" id="resultSub"></p>
+          </div>
+          <div class="timing" id="timing" aria-live="polite"></div>
+        </div>
+
+        <p class="rebuilt-note" id="rebuiltNote" hidden></p>
+
+        <div class="list-tools">
+          <form class="inline-form grow" id="itemForm">
+            <label class="visually-hidden" for="itemInput">Add an item</label>
+            <input id="itemInput" type="text" maxlength="48" placeholder="add something you know you need" autocomplete="off" />
+            <button type="submit" class="ghost-button">Add</button>
+          </form>
+          <div class="tool-buttons">
+            <button type="button" class="ghost-button" id="copyButton">Copy as text</button>
+            <button type="button" class="ghost-button" id="downloadButton">Download .txt</button>
+            <button type="button" class="ghost-button" id="uncheckButton">Uncheck all</button>
+          </div>
+        </div>
+
+        <div id="listBody" class="list-body"></div>
+        <p class="list-empty" id="listEmpty" hidden>
+          Nothing on the list. Either your kitchen is in great shape, or every staple is present and accounted for.
+        </p>
+        <p class="tiny-note" id="listNote"></p>
+      </section>
+
+      <section class="card seen-card" id="seenCard" aria-labelledby="seenTitle" hidden>
+        <button class="disclosure" id="seenToggle" type="button" aria-expanded="true" aria-controls="seenBody">
+          <span>
+            <h2 id="seenTitle">What the model actually saw</h2>
+            <span class="card-sub" id="seenSub"></span>
+          </span>
+          <svg class="chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <div id="seenBody">
+          <p class="seen-legend">
+            Worth a glance. Low-confidence guesses are highlighted — if one is wrong, fix the list with the
+            delete button and add the right thing.
+          </p>
+          <div class="seen-grid" id="seenList"></div>
+          <div class="unclear" id="unclearWrap" hidden>
+            <h3>Could not tell</h3>
+            <p class="card-sub">The model refused to guess at these. Honest of it.</p>
+            <ul id="unclearList"></ul>
+          </div>
+          <p class="tiny-note" id="seenStats"></p>
+        </div>
+      </section>
+
+      <section class="card honesty-card" aria-labelledby="honestyTitle">
+        <h2 id="honestyTitle">The honest part</h2>
+        <p>
+          A camera sees what is in the fridge, not what is gone. So this list is an inference: staples you
+          told us you keep, minus the ones visible in your photos, plus anything the model thinks looks
+          nearly empty. A 4-billion-parameter model is small and genuinely can misread a jar of pickles
+          as relish. Check the "what the model saw" panel before you trust the list.
+        </p>
+        <p>
+          No photos are uploaded anywhere. They are resized in your browser, sent to the local Ollama
+          server on this machine, and dropped from memory when the request ends.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Fridge to List · MIT licensed · open-weight Gemma 3 through
+        <a href="https://ollama.com" rel="noreferrer noopener">Ollama</a> · built for the
+        Hacktoberfest Open-Source AI Challenge
+      </p>
+    </footer>
+
+    <dialog id="settingsDialog" class="sheet" aria-labelledby="settingsTitle">
+      <form method="dialog" class="sheet-inner">
+        <div class="sheet-head">
+          <h2 id="settingsTitle">Model settings</h2>
+          <button class="icon-button" value="cancel" aria-label="Close settings">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <p class="card-sub">Everything runs on this machine. The list below comes straight from your local Ollama.</p>
+
+        <div class="status-line" id="ollamaStatus" aria-live="polite">
+          <span class="dot" id="ollamaDot"></span>
+          <span id="ollamaStatusText">Checking Ollama…</span>
+          <button type="button" class="link-button" id="refreshModels">Refresh</button>
+        </div>
+
+        <label class="field-label" for="modelSelect">Model</label>
+        <select id="modelSelect" class="select"></select>
+        <p class="tiny-note" id="modelHelp"></p>
+
+        <div class="sheet-actions">
+          <button type="button" class="ghost-button" id="resetModel">Use default</button>
+          <button class="primary-button" value="done" id="saveSettings">Save</button>
+        </div>
+
+        <div class="sheet-note">
+          <p class="commands-label">Setup, if you have not already:</p>
+          <pre class="commands"><code>ollama serve
+ollama pull gemma3:4b</code></pre>
+          <p class="tiny-note">
+            Prefer another open-weight vision model? Any installed model works — pick it above.
+            Change the default with the <code>OLLAMA_MODEL</code> env var.
+          </p>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="demoDialog" class="sheet wide" aria-labelledby="demoTitle">
+      <div class="sheet-inner">
+        <div class="sheet-head">
+          <h2 id="demoTitle">Sample preview</h2>
+          <form method="dialog">
+            <button class="icon-button" aria-label="Close sample preview">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+            </button>
+          </form>
+        </div>
+        <p class="sample-banner" role="note">
+          <strong>Sample data, not AI.</strong> A hand-written example of what a finished list looks like.
+          Nothing here came from a model, and it never mixes with your real results.
+        </p>
+        <div class="demo-body">
+          <div class="demo-timing">Example run · 14.2s with gemma3:4b · 9 items</div>
+          <div class="demo-section">
+            <h3>Produce</h3>
+            <ul>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Onions <span class="reason">not seen in photos</span></li>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Tomatoes <span class="reason">looks nearly empty</span></li>
+            </ul>
+          </div>
+          <div class="demo-section">
+            <h3>Dairy &amp; eggs</h3>
+            <ul>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Milk <span class="reason">looks nearly empty</span></li>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Eggs <span class="reason">not seen in photos</span></li>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Yogurt <span class="reason">not seen in photos</span></li>
+            </ul>
+          </div>
+          <div class="demo-section">
+            <h3>Bakery</h3>
+            <ul>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Bread <span class="reason">not seen in photos</span></li>
+            </ul>
+          </div>
+          <div class="demo-section">
+            <h3>Pantry</h3>
+            <ul>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Rice <span class="reason">looks nearly empty</span></li>
+              <li class="demo-item"><span class="check" aria-hidden="true"></span>Coffee <span class="reason">added by you</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="tiny-note">
+          The real panel also shows every item the model saw, with its confidence, so you can check its work.
+        </p>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

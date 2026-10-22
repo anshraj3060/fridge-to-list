@@ -1,0 +1,19 @@
+{
+  "name": "fridge-to-list",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Snap your fridge, get a grocery list. Local-first, open-weight Gemma 3 via Ollama.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  }
+}
