@@ -730,7 +730,9 @@ async function handleAnalyze() {
   try {
     const data = await analyzePhotos({
       images: state.photos.map((photo) => photo.dataUrl),
-      model: state.model || state.defaultModel,
+      // Only send a model when the user explicitly chose one in Settings;
+      // otherwise the server applies OLLAMA_MODEL / its own default.
+      model: state.model || undefined,
       signal: controller.signal,
     });
 
